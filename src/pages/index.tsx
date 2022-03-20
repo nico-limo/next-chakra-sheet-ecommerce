@@ -3,17 +3,20 @@ import { GetStaticProps } from "next";
 import { Product } from "../product/types";
 import fetchList from "../product/api";
 import {
-  Box,
   Button,
   Flex,
   Grid,
   HStack,
-  Link,
+  Image,
   Stack,
   Text,
+  useDisclosure,
+  useToast,
 } from "@chakra-ui/react";
-import { WHATSAPP_PATH } from "../../utils/constant";
 import { parseCurrency } from "../../utils/methods";
+import CartButtons from "../product/components/CartButtons";
+import SelectedItem from "../product/components/SelectedItem";
+import DrawnerCart from "../product/components/DrawnerCart";
 
 type Props = {
   products: Product[];
@@ -21,25 +24,27 @@ type Props = {
 
 const Home: FC<Props> = ({ products }) => {
   const [cart, setCart] = useState<Product[]>([]);
-  const text = useMemo(
+  const [selectedItem, setSelectedItem] = useState<Product>(null);
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const toast = useToast();
+  const {
+    isOpen: isOpenCart,
+    onOpen: onOpenCart,
+    onClose: onCloseCart,
+  } = useDisclosure();
+  const totalAmount = useMemo(
     () =>
-      cart
-        .reduce(
-          (message, product) =>
-            message.concat(
-              `* ${product.title} - ${parseCurrency(product.price)}\n`
-            ),
-          ""
-        )
-        .concat(
-          `\nTotal: ${parseCurrency(
-            cart.reduce((total, product) => total + product.price, 0)
-          )}`
-        ),
+      parseCurrency(cart.reduce((total, product) => total + product.price, 0)),
     [cart]
   );
 
   const handleAddCart = (product: Product) => {
+    if (cart.includes(product))
+      return toast({
+        title: `Producto ya agregado`,
+        status: "warning",
+        isClosable: true,
+      });
     setCart((prevCart) => [...prevCart, product]);
   };
   const handleRemovedCart = (product: Product) => {
@@ -48,6 +53,10 @@ const Home: FC<Props> = ({ products }) => {
       const newCart = prevCart.filter((cartProduct, i) => i !== indexOf);
       return newCart;
     });
+  };
+  const handleSelection = (product: Product) => {
+    setSelectedItem(product);
+    onOpen();
   };
 
   return (
@@ -61,51 +70,64 @@ const Home: FC<Props> = ({ products }) => {
             p={4}
             spacing={3}
           >
-            <Stack spacing={1}>
-              <Text>{product.title}</Text>
-              <Text color="green.500" fontWeight="500" fontSize="sm">
-                {parseCurrency(product.price)}
-              </Text>
+            <Stack onClick={() => handleSelection(product)} cursor="pointer">
+              <Image
+                src={product.image}
+                alt={product.title}
+                maxH={300}
+                maxW={260}
+                borderTopRadius="md"
+              />
+              <Stack spacing={1}>
+                <Text>{product.title}</Text>
+                <Text color="green.500" fontWeight="500" fontSize="sm">
+                  {parseCurrency(product.price)}
+                </Text>
+              </Stack>
             </Stack>
-            <HStack justify="space-between">
-              <Button
-                onClick={() => handleAddCart(product)}
-                colorScheme="primary"
-              >
-                Agregar
-              </Button>
-              {cart.includes(product) && (
-                <Button
-                  onClick={() => handleRemovedCart(product)}
-                  colorScheme="secondary"
-                >
-                  Remover
-                </Button>
-              )}
-            </HStack>
+            <CartButtons
+              product={product}
+              cart={cart}
+              addProduct={handleAddCart}
+              removeProduct={handleRemovedCart}
+            />
           </Stack>
         ))}
       </Grid>
-      {cart.length && <Button>{`Ver Carrito ${cart.length} productos`}</Button>}
+
       {cart.length && (
-        <Flex
-          bg="rgba(123, 125, 130, 0.34)"
+        <HStack
+          bg="gray.300"
           p={4}
           position="sticky"
-          bottom={4}
+          bottom={0}
           align="center"
-          justify="center"
+          justify="space-around"
         >
+          <Flex direction="column">
+            <Text>{`Productos: ${cart.length}`}</Text>
+            <Text>{`Total: ${totalAmount} `}</Text>
+          </Flex>
           <Button
-            as={Link}
-            href={`${WHATSAPP_PATH}/555633455?text=${encodeURIComponent(text)}`}
-            isExternal
-            colorScheme="whatsapp"
-          >
-            Completar Pedido
-          </Button>
-        </Flex>
+            onClick={onOpenCart}
+            colorScheme="linkedin"
+          >{`Ver Carrito`}</Button>
+        </HStack>
       )}
+      {selectedItem && (
+        <SelectedItem
+          isOpen={isOpen}
+          onClose={onClose}
+          selectedItem={selectedItem}
+        />
+      )}
+      <DrawnerCart
+        isOpen={isOpenCart}
+        onClose={onCloseCart}
+        cart={cart}
+        totalAmount={totalAmount}
+        removeProduct={handleRemovedCart}
+      />
     </Stack>
   );
 };
